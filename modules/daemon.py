@@ -11,7 +11,7 @@ import sys
 import ssl
 
 def on_unmatched_message(client, userdata, msg):
-    logging.warn(f"unmatched msg at {msg.topic} {msg.payload.decode('utf-8')}")
+    logging.debug(f"unmatched msg at {msg.topic} {msg.payload.decode('utf-8')}")
 
 def load_config(cpath):
     with open(cpath) as cfile:
@@ -20,7 +20,7 @@ def load_config(cpath):
 def start_mqtt(mqttconfig, log_level='INFO'):
     NAME = 'Paho'
 
-    client = mqtt.Client()
+    client = mqtt.Client(userdata={})
     client.tls_set(ca_certs=mqttconfig['cafile'], certfile=mqttconfig['cert'], keyfile=mqttconfig['key'], cert_reqs=ssl.CERT_REQUIRED,
     tls_version=ssl.PROTOCOL_TLS)
     client.on_message = on_unmatched_message
