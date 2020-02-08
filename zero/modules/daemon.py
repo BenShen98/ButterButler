@@ -1,21 +1,29 @@
 #! /usr/bin/python3
-
-import paho.mqtt.client as mqtt
-from random import random
-from time import sleep
-
 import logging
+logging.basicConfig(level=logging.INFO,
+    format='%(levelname)s:%(asctime)s %(filename)s:%(funcName)s: %(message)s',
+    datefmt='%H:%M'
+)
+
 import threading
 import yaml
 import sys
 import ssl
 
+import paho.mqtt.client as mqtt
+from random import random
+from time import sleep
+
+
+
 def on_unmatched_message(client, userdata, msg):
-    logging.debug(f"unmatched msg at {msg.topic} {msg.payload.decode('utf-8')}")
+    logging.debug(f"ignore msg {msg.topic} {msg.payload.decode('utf-8')}")
 
 def load_config(cpath):
     with open(cpath) as cfile:
-        return yaml.load(cfile, Loader=yaml.BaseLoader)
+        config=yaml.load(cfile, Loader=yaml.BaseLoader)
+        logging.debug(f"parse config {config}")
+        return config
 
 def start_mqtt(mqttconfig, log_level='INFO'):
     NAME = 'Paho'
@@ -37,36 +45,31 @@ def start_mqtt(mqttconfig, log_level='INFO'):
 
     return client
 
-def start_modules(modulesconfig, mqttclient):
+def start_modules(modulesconfig, mqttclient, topicperfix):
     # init modules3
     for module_name, file_names in modulesconfig.items():
         for file_name in file_names:
             idstr=f"{module_name}_{file_name}"
             mod = __import__(f"{module_name}.{file_name}", fromlist=['main'])
-            threading.Thread(name=file_name, target=mod.main, args=(mqttclient,idstr,)).start()
-
+            threading.Thread(name=file_name, target=mod.main, args=(mqttclient,idstr,topicperfix)).start()
+            logging.info(f"started {idstr}")
 
 def main():
     threading.current_thread().name = "Daemon"
 
     # load userconfig
     configs=load_config(sys.argv[1])
-    log_level=configs['log_level']
+    log_levels=configs['log_level']
 
-    # config loger
-    logging.basicConfig(level=log_level['main'],
-        # format='%(asctime)s %(threadName)s:%(funcName)s: %(message)s',
-        # datefmt='%Y-%m-%d %H:%M'
-        format='%(asctime)s %(filename)s:%(funcName)s: %(message)s',
-        datefmt='%H:%M'
-    )
+    # set root logger level
+    logging.getLogger().setLevel(log_levels['main'])
 
     # config mqtt
-    client = start_mqtt(configs['mqtt'],log_level['paho'])
+    client = start_mqtt(configs['mqtt'],log_levels['paho'])
 
     # register modules
     # publish modules may be blocking, subscribe modules should blocking
-    start_modules(configs['modules'], client)
+    start_modules(configs['modules'], client, configs['mqtt']['topic_perfix'])
 
     # blocking forever
     client._thread.join()
