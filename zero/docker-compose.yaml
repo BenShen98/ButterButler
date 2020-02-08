@@ -1,0 +1,22 @@
+version: '2'
+
+volumes:
+  da-config:
+
+networks:
+  internal:
+
+services:
+  da:
+    container_name: daemon
+    build:
+      dockerfile: docker/daemon.Dockerfile
+      context: .
+    volumes:
+      - da-config:/config
+    environment:
+      - TZ=Europe/London
+    restart: always
+    networks:
+      internal:
+    privileged: true

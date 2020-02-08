@@ -2,15 +2,17 @@
 import smbus
 from time import sleep
 import json
+import logging
 
-def main(mqtt,idstr):
-    sensordict={0x03:'floortemp', 0x01:'ceilingtemp'} # 0x03:objtemp, 0x01:devicetemp
+def main(mqtt,idstr, base):
+    sensordict={0x03:'objtemp', 0x01:'devicetemp'}
+    state_topic=f"{base}/sensor/{idstr}"
 
     # register to server
     for sensorname in sensordict.values():
         config = json.dumps({"device_class": "temperature",
             "name": sensorname,
-            "state_topic": f"butterbutler/sensor/{idstr}",
+            "state_topic": state_topic,
             "unit_of_measurement": "°C",
             "value_template": "{{ value_json."+sensorname+"}}"})
 
@@ -37,7 +39,8 @@ def main(mqtt,idstr):
             if cTemp > 8191 :
                 cTemp -= 16384
             cTemp = cTemp * 0.03125
-            reading[sensorname]=cTemp
+            reading[sensorname]=round(cTemp,1)
 
-        mqtt.publish(f"butterbutler/sensor/{idstr}", json.dumps(reading))
+        logging.debug(f"get temp measurement {reading}")
+        mqtt.publish(state_topic, json.dumps(reading))
         sleep(1)

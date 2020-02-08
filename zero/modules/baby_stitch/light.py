@@ -1,6 +1,7 @@
 from gpiozero import PWMLED
 import json
 from time import sleep
+import logging
 
 class Light():
     def __init__(self,r_pin,g_pin,b_pin):
@@ -15,6 +16,8 @@ class Light():
     def update(self):
         r, g, b = self.state
         r,g,b=((r*self.brightness)/255,(g*self.brightness)/255,(b*self.brightness)/255)
+
+        logging.debug(f"update light to {(r,g,b)}")
 
         self.r.value=(260-r)/260
         self.b.value=(255-b)/255
@@ -48,6 +51,9 @@ def on_message(client,userdata,message):
 
     data=message.payload.decode('utf-8')
     data=json.loads(data)
+
+    logging.debug(f"update light {light} with {data} ")
+
     if (data['state']=="ON"):
         if ('color' in data):
             color=data['color']
@@ -62,14 +68,14 @@ def on_message(client,userdata,message):
     client.publish(state_topic,json.dumps(light.getstates()))
 
 
-def main(mqtt, idstr, r_pin=17,g_pin=27,b_pin22=22):
-
-    state_topic=f"butterbutler/light/{idstr}"
+def main(mqtt, idstr, base, r_pin=17,g_pin=27,b_pin=22):
+    state_topic=f"{base}/light/{idstr}"
     command_topic=state_topic+"/set"
 
     # register to server
     config=json.dumps({
         "schema": "json",
+        "name": idstr,
         "state_topic": state_topic,
         "command_topic": command_topic,
         "json_attributes_topic": state_topic,
@@ -79,7 +85,7 @@ def main(mqtt, idstr, r_pin=17,g_pin=27,b_pin22=22):
     mqtt.publish(f"homeassistant/light/{idstr}/light/config",config)
 
     # init light
-    light=Light(17,27,22)
+    light=Light(r_pin,g_pin,b_pin)
     mqtt._userdata[idstr]=light
     mqtt.publish(state_topic,json.dumps(light.getstates()))
 
