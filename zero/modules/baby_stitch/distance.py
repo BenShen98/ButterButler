@@ -3,6 +3,80 @@ import logging
 import smbus
 from time import sleep
 import json
+from collections import deque
+class Gesture:
+    def __init__(self, mqtt, light, topic):
+        command_topic=f"{topic}/set"
+
+        # init gesture
+        config = json.dumps({
+            "name": "gesture topic",
+            "state_topic": topic,
+            "availability_topic": topic,
+            "command_topic": command_topic,
+            "icon": "mdi:hand"
+        })
+        mqtt.publish(f"homeassistant/switch/{topic.rsplit('/',1)[1]}/config", config)
+        mqtt.message_callback_add(command_topic,self.get_gesture_callback())
+
+        # init state
+        self.active="ON"
+        self.light=light
+        self.topic=topic
+        self.mqtt=mqtt
+
+        # state machine
+        #{idel, running, }
+        self.start=None # None means not start, number means first number
+        self.reads=deque([0]*5)
+        self.sum=0
+        self.start_bright=0
+
+        mqtt.publish(topic, "online")
+        mqtt.publish(topic,self.active)
+
+    def reading(self, reading):
+        # update value
+        self.sum += reading - self.reads.popleft()
+        self.reads.append(reading)
+
+        mean=self.sum/5
+        if self.active=="ON": # master control
+
+            if self.start is None:
+                # idel state
+                if ( abs(reading-450)<350 and abs(mean-reading)<20 ):
+                    # hand hover between 100mm - 500mm and stable for 5 readings (1s)
+                    self.start=reading
+                    self.start_bright=self.light.brightness
+
+            else:
+                # running state
+                if abs(mean - reading)>500:
+                    # hand left, exit control
+                    self.start = None
+                else:
+                    # control light, use mean to smounth change
+                    target_b = (mean - self.start)*1.5 + self.start_bright
+                    if abs(target_b-self.light.brightness) > 1:
+                        logging.debug(f"gesture update:{self.start} mean:{mean} bright:{self.light.brightness}")
+                        self.light.setbright(target_b)
+
+    def set_active(self, active):
+        self.active=active
+        self.mqtt.publish(self.topic, active)
+        if self.active=="OFF":
+            self.start=None
+
+    def get_gesture_callback(self):
+
+        def gesture_callback(client,userdata,message):
+            self.set_active(message.payload.decode('utf-8'))
+
+        return gesture_callback
+
+
+
 
 def str_error(code):
     # 11=good ,1,2,3 =HW Fail 6,9=Phase Fail 8,10=Min Range Fail 4=Signal Fail 0,5 not specified
@@ -27,8 +101,24 @@ def VL53L0X_decode_vcsel_period(vcsel_period_reg):
 
 def main(mqtt, idstr, base):
     state_topic=f"{base}/sensor/{idstr}"
+    gesture_topic=f"{base}/switch/{idstr}_gesture"
     sensorname="distance"
 
+    # gesture config
+    light=None
+    sleep(2)
+    for name, instance in mqtt._userdata.items():
+        print
+        if "light" in name:
+            light=instance
+            break
+
+    if light:
+        gesture=Gesture(mqtt, light,gesture_topic)
+    else:
+        logging.warning("unable find light instance, no gesture support")
+
+    # sensor config
     VL53L0X_REG_IDENTIFICATION_MODEL_ID	= 0x00c0
     VL53L0X_REG_IDENTIFICATION_REVISION_ID	= 0x00c2
     VL53L0X_REG_PRE_RANGE_CONFIG_VCSEL_PERIOD = 0x0050
@@ -85,8 +175,10 @@ def main(mqtt, idstr, base):
                 "distance": distance
             }
 
+            gesture.reading(distance)
+
             mqtt.publish(state_topic, json.dumps(reading))
         else:
             logging.debug(f"TOF sensor error {status} {str_error(status)}")
 
-        sleep(1)
+        sleep(0.2)

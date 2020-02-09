@@ -4,12 +4,15 @@ from time import sleep
 import logging
 
 class Light():
-    def __init__(self,r_pin,g_pin,b_pin):
+    def __init__(self,r_pin,g_pin,b_pin, mqtt, state_topic):
         self.state=(255,255,255) # (r,g,b) value
         self.brightness=255
         self.r=PWMLED(r_pin)
         self.g=PWMLED(g_pin)
         self.b=PWMLED(b_pin)
+
+        self.mqtt=mqtt
+        self.state_topic=state_topic
 
         self.update()
 
@@ -23,12 +26,15 @@ class Light():
         self.b.value=(255-b)/255
         self.g.value=(255-g)/255
 
+        self.mqtt.publish(self.state_topic, json.dumps(self.getstates()))
+
     def setcolour(self,r,g,b):
+        r,g,b=min(255,max(0,r)),min(255,max(0,g)),min(255,max(0,b))
         self.state=(r,g,b)
         self.update()
 
     def setbright(self, bright):
-        self.brightness=bright
+        self.brightness=min(255,max(0,bright))
         self.update()
 
     def __str__(self):
@@ -65,8 +71,6 @@ def on_message(client,userdata,message):
     else:
        light.setbright(0)
 
-    client.publish(state_topic,json.dumps(light.getstates()))
-
 
 def main(mqtt, idstr, base, r_pin=17,g_pin=27,b_pin=22):
     state_topic=f"{base}/light/{idstr}"
@@ -85,8 +89,5 @@ def main(mqtt, idstr, base, r_pin=17,g_pin=27,b_pin=22):
     mqtt.publish(f"homeassistant/light/{idstr}/light/config",config)
 
     # init light
-    light=Light(r_pin,g_pin,b_pin)
-    mqtt._userdata[idstr]=light
-    mqtt.publish(state_topic,json.dumps(light.getstates()))
-
+    mqtt._userdata[idstr]=Light(r_pin,g_pin,b_pin, mqtt, state_topic)
     mqtt.message_callback_add(command_topic,on_message)
