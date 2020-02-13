@@ -62,14 +62,30 @@ zero
 ```
 The modules directories contains many sub-folder, each folder contains a collection of code (module) that will be useful in that setup. This offers great flexibility, allows custom solutions by picking relevant packages.
 
+# Running the Docker/Script
+
+## Hub
+
+1. cd to `hub/docker`, run docker compose with `balena`.
+2. run `hub/config/config.sh up` to upload all configurations under `config` folder to Raspberry Pi.
+3. run `hub/config/setup_mqtt_tls.sh zero` to generate all necessary keys and certificate. Keys for `zero` will be downloaded to `hub/.backhub` folder
+
+## Zero
+
+1. Copy Keys for zero to `zero/da-config`
+2. cd to `zero`, run docker compose with `balena`
+
 # Demos
 
-[baby monitor](https://youtu.be/UTIuuA0ERD4)
+## Baby Monitor
 
-[lights off](https://youtu.be/WFLGXmQCwUE)
+<a href="https://youtu.be/UTIuuA0ERD4"><img src="img/baby_monitor.jpg" width="400" title="Baby Monitor"></a>
 
-[movie night](https://youtu.be/rw3-bpV8qkg)
 
-# Team
-...
+## Light Off
 
+<a href="https://youtu.be/WFLGXmQCwUE"><img src="img/light_off.jpg" width="400" title="Light Off"></a>
+
+## Movie Night
+
+<a href="https://youtu.be/rw3-bpV8qkg"><img src="img/movie_night.jpg" width="400" title="Movie Night"></a>
