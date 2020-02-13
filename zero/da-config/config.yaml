@@ -1,0 +1,17 @@
+mqtt:
+  host: eatchickenhub.ddns.net
+  port: 8883
+  topic_perfix: butterbulter
+  cafile: /config/ca.crt
+  cert: /config/zero.crt
+  key: /config/zero.key
+
+modules:
+  baby_stitch:
+  - light
+  - temperature
+  - distance
+
+log_level:
+    main: INFO
+    paho: INFO

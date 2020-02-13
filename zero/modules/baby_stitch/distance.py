@@ -26,38 +26,46 @@ class Gesture:
         self.mqtt=mqtt
 
         # state machine
-        #{idel, running, }
         self.start=None # None means not start, number means first number
-        self.reads=deque([0]*5)
+        self.reads=deque([0]*3)
         self.sum=0
         self.start_bright=0
 
         mqtt.publish(topic, "online")
+        sleep(0.01)
         mqtt.publish(topic,self.active)
 
     def reading(self, reading):
+        # CONFIGS
+        MIN_DIS = 30
+        MAX_DIS = 260
+        DIS_SCALE = 1.5
+
+        mid_dis=(MIN_DIS+MAX_DIS)/2
+        half_dis=(MAX_DIS-MIN_DIS)/2
+
         # update value
         self.sum += reading - self.reads.popleft()
         self.reads.append(reading)
 
-        mean=self.sum/5
+        mean=self.sum/3
         if self.active=="ON": # master control
 
             if self.start is None:
                 # idel state
-                if ( abs(reading-450)<350 and abs(mean-reading)<20 ):
-                    # hand hover between 100mm - 500mm and stable for 5 readings (1s)
+                if ( abs(reading-mid_dis)<half_dis and abs(mean-reading)<10 ):
+                    # start between MIN_DIS and MAX_DIS, stable for 5 readings (1s)
                     self.start=reading
                     self.start_bright=self.light.brightness
 
             else:
                 # running state
-                if abs(mean - reading)>500:
+                if abs(mean - reading)>150 or reading > MAX_DIS:
                     # hand left, exit control
                     self.start = None
                 else:
-                    # control light, use mean to smounth change
-                    target_b = (mean - self.start)*1.5 + self.start_bright
+                    # control light, use mean to smooth change
+                    target_b = (mean - self.start)*DIS_SCALE + self.start_bright
                     if abs(target_b-self.light.brightness) > 1:
                         logging.debug(f"gesture update:{self.start} mean:{mean} bright:{self.light.brightness}")
                         self.light.setbright(target_b)
@@ -108,7 +116,6 @@ def main(mqtt, idstr, base):
     light=None
     sleep(2)
     for name, instance in mqtt._userdata.items():
-        print
         if "light" in name:
             light=instance
             break

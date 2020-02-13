@@ -22,7 +22,7 @@ class Light():
 
         logging.debug(f"update light to {(r,g,b)}")
 
-        self.r.value=(260-r)/260
+        self.r.value=(255-r)/255
         self.b.value=(255-b)/255
         self.g.value=(255-g)/255
 
@@ -72,7 +72,7 @@ def on_message(client,userdata,message):
        light.setbright(0)
 
 
-def main(mqtt, idstr, base, r_pin=17,g_pin=27,b_pin=22):
+def main(mqtt, idstr, base, r_pin=22,g_pin=27,b_pin=17):
     state_topic=f"{base}/light/{idstr}"
     command_topic=state_topic+"/set"
 

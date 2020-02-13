@@ -20,7 +20,7 @@ mqtt:
   discovery_prefix: homeassistant
   broker: mos
   port: 8883
-  tls_insecure: true
+  tls_insecure: false
   certificate: '/config/ca.crt'
   client_key: '/config/ha.key'
   client_cert: '/config/ha.crt'
@@ -30,3 +30,15 @@ mqtt:
   will_message:
     topic: 'hass/status'
     payload: 'offline'
+
+history_graph:
+  temperature_graph:
+    name: 'Temperature History'
+    entities:
+      - sensor.devicetemp
+      - sensor.objtemp
+
+  distance_graph:
+    name: 'Distance History'
+    entities:
+      - sensor.distance
